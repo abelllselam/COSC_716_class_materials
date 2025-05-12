@@ -1,0 +1,130 @@
+package SeeAndSay;
+
+// IMPORTANT: The following line should remain as:  import SeeAndSay.animalImpl.*;
+// This is to ensure that all the animal classes are imported. Many IDE's will "optimize"
+// imports and remove the "wildcard" import.
+
+import SeeAndSay.animalImpl.*;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+
+/**
+ * The AnimalListBuilder class is used to build a list of animals.
+ *
+ * @author Adam J. Conover, D.Sc. <aconover@towson.edu>
+ */
+public class AnimalListBuilder {
+    /* Create a new Animal List */
+    private final List<Animal> animalList = new LinkedList<>();
+
+    /* Simple Constructor */
+    public AnimalListBuilder() {
+        addAnimals();
+    }
+
+    /*
+     * Gets an unmodifiable collection of the animals that have been added to the
+     * list
+     */
+    public List<Animal> getAnimalList() {
+        return Collections.unmodifiableList(this.animalList);
+    }
+
+    /* Add all the animal classes */
+    private void addAnimals() {
+
+        // aconover
+        this.animalList.add(new Aconover("Platty"));
+
+        /*
+         * *****************************************************************************
+         * ***
+         */
+        /*
+         * USING THE ABOVE AS AN EXAMPLE, ADD YOUR ANIMAL CLASS BELOW, UNDER YOUR
+         * USERNAME.
+         */
+        /*
+         * *****************************************************************************
+         * ***
+         */
+
+        // amcnei8
+        this.animalList.add(new Amcnei8("Tracy"));
+
+
+        // aroger28
+        this.animalList.add(new Arogers("Birdie"));
+
+        // asillah2
+        this.animalList.add(new Asillah2("Cheepas"));
+
+        // awolde1
+        this.animalList.add(new Awolde1("Cat"));
+        // babumer1
+        this.animalList.add(new Babumer1("Orca"));
+
+        // bnaylon1
+        this.animalList.add(new Bnaylon1("Duck"));
+
+        // careval1
+        this.animalList.add(new Careval1("Stelio"));
+
+        // chogga1
+        this.animalList.add(new Chogga1("Lamb"));
+
+        // dbinkam1
+        this.animalList.add(new Dbinkam1("egg"));
+        // dgraff1
+        this.animalList.add(new Dgraff1("TIGER"));
+
+        // eadeniy1
+        this.animalList.add(new Eadeniy1("Snake"));
+
+        // easomuy1
+        this.animalList.add(new Easomuy1("Panda"));
+
+        // gofoche1
+        this.animalList.add(new Gofoche("Chicken"));
+
+        // iashio1
+
+        // jbhavsa2
+
+        // jsykes9
+        this.animalList.add(new Jsykes9("Extremely Evil Clown With Bad Intentions"));
+
+        // kdingm1
+        this.animalList.add(new Kdingm1("Slug Cat"));
+
+        // kgiles3
+
+        // kmattox2
+
+        // kpatel43
+        this.animalList.add(new Kpatel43("Lion"));
+
+        // manjori1
+
+        // masubo2
+
+        // mopoku3
+
+        // nbhatt5
+
+        // nketter1
+        this.animalList.add(new Nketter("Lil Horse Guy"));
+
+        // promer2
+        this.animalList.add(new Promer2("Messi is the Goat"));
+        // screedon
+
+        // sjnbapt1
+        this.animalList.add(new Sjnbapt("Luna"));
+
+        // sschatz1
+        this.animalList.add(new Sschatz("Fred"));
+
+    }
+}

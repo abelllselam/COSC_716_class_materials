@@ -1,0 +1,18 @@
+package SeeAndSay.animalImpl;
+import SeeAndSay.Animal;
+import SeeAndSay.Talker;
+
+public class Jsykes9 extends Animal implements Talker {
+
+    public final String sound;
+
+    public Jsykes9(String animalName) {
+
+        super(animalName);
+        this.sound ="AAAAAAAAAAAAHH!!!!!!!!!!!!!!";
+    }
+
+    public String getSound(){
+        return this.sound;
+    }
+}

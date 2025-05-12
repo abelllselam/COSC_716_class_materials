@@ -1,0 +1,135 @@
+<!-- ===============================================================================================
+
+This file is actually optional, as you can build the project easily from within your IDE. However,
+if you want to build from the command line, and/or you want to build a "stand-alone" executable jar,
+then this file is helpful.
+
+This is a super simple ANT build file; its primary intent is to build the project just to make sure
+that all the source files compile correctly. Though, it can also be used for building a simple
+"Executable Jar" files if desired.
+
+Note that ANT is a relatively "simple" build tool (compared to Maven or Gradle), that handles most
+common build tasks. Much like SVN vs. GIT, other tools *may* be more "powerful", but often times,
+the added "power" doesn't justify the added complexity, especially if you don't really need those
+extra features.
+
+    ANT can be downloaded from: https://ant.apache.org/ Documentation:
+    https://ant.apache.org/manual/using.html Nice ANT Tutorial:
+    https://www.vogella.com/tutorials/ApacheAnt/article.html
+
+    (Building full, stand-alone packages is also possible, but it's a bit more involved:
+    https://docs.oracle.com/en/java/javase/17/docs/specs/man/jpackage.html)
+
+====================================================================================================
+
+To use this build file, you must have ANT installed on your system. (See above link for instructions
+on how to install.) Once installed, you can run the build with the command (from the directory
+containing this file):
+
+    ant jar
+
+After the build is complete, you may run the program with the command:
+
+    java -jar Game.jar
+
+================================================================================================ -->
+
+<project default="compile">
+    <!-- Global properties for this build -->
+    <property name="main" value="objectAdventure.Main"/>
+    <property name="jarfile" location="Game.jar"/>
+    <property name="build" location="build"/>
+    <property name="src" location="src"/>
+    <property name="jdk" value="21"/>
+
+    <!-- Clean target: Deletes the build directory -->
+    <target name="clean">
+        <delete dir="${build}"/>
+    </target>
+
+
+    <!-- Clean-All target: Deletes the build directory and the JAR file -->
+    <target name="clean-all" depends="clean">
+        <delete file="${jarfile}"/>
+    </target>
+
+
+    <!-- Compile target: Compiles the Java source files -->
+    <target name="compile" depends="clean-all">
+        <echo>Start Compiling: ${basedir}</echo>
+
+        <!-- Create the build directory if it doesn't exist -->
+        <mkdir dir="${build}"/>
+
+        <!-- Compile the Java source files -->
+        <javac srcdir="${src}" destdir="${build}" release="${jdk}"
+               includeantruntime="false" fork="true"
+               debug="true" deprecation="true"
+               optimize="false" failonerror="true"
+               excludes="**/package-info.java">
+
+            <compilerarg value="-Xlint:unchecked"/>
+        </javac>
+
+        <copy todir="${build}">
+            <fileset dir="${src}" excludes="**/*.java"/>
+        </copy>
+
+        <echo>End Compiling: ${basedir}</echo>
+    </target>
+
+
+    <!-- Jar target: Creates a JAR file from the compiled classes -->
+    <target name="jar" depends="compile">
+        <!-- Create the JAR file -->
+        <jar destfile="${jarfile}" basedir="${build}">
+            <!-- Copy all files from src folder to .jar -->
+            <!-- <fileset dir="${build}" /> -->
+
+            <!-- Copy all non-Java src files to .jar -->
+            <!-- <fileset dir="${src}" excludes="**/*.java" /> -->
+
+            <manifest>
+                <attribute name="Main-Class" value="${main}"/>
+            </manifest>
+        </jar>
+
+        <!-- Clean up the build directory after creating the JAR -->
+        <antcall target="clean"/>
+    </target>
+
+
+    <!-- Run target: Runs the JAR file -->
+    <target name="run" depends="compile">
+        <!-- Execute the JAR file -->
+
+        <java classpath="${build}" classname="${main}"/>
+        <antcall target="clean-all"/>
+    </target>
+
+
+    <!-- Run target: Runs the JAR file
+
+         This target is used to run the program with input from a file specified when launching ANT.
+         For example:
+
+            ant test -Dstdin="input.txt"
+
+         Ignore any errors about "input" not being a valid attribute!
+         It's a "conditional" attribute, so I need to figure out how to fix things so "linting" doesn't complain
+         despite the "if" attribute preventing it from being used if it's not defined.
+    -->
+    <target name="test" depends="compile" if="stdin">
+        <echo message="Running with input from ${stdin}"/>
+        <java classpath="${build}" classname="${main}" input="${stdin}"/>
+        <antcall target="clean-all"/>
+    </target>
+
+
+    <!-- Check target: Compiles the source files and then cleans up -->
+    <target name="check">
+        <antcall target="compile"/>
+        <antcall target="clean"/>
+    </target>
+
+</project>

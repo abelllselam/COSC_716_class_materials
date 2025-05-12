@@ -1,0 +1,189 @@
+package SeeAndSay;
+
+// Import the List and Collection classes
+
+import java.util.Collection;
+
+import static java.lang.System.out;
+
+/**
+ * The MAIN class for the SeeAndSay project.
+ */
+public class MAIN {
+    public static void main(String[] args) {
+        // Create a new AnimalListBuilder
+        AnimalListBuilder animalListBuilder = new AnimalListBuilder();
+
+        // Get the list of animals as a Collection because we don't care if it's a List or a Set.
+        // Generally speaking, we should use the most "general" type that we can. (We'll see why
+        // this is important later.)
+        //
+        // Note: We can't simply use "Object" because we need to be able to treat the variable as a
+        // Collection of things, and we can't just use "Iterable" (the parent class of "List") as
+        // "Iterable" does not expose a "size()" method, which is used below later in this method
+        Collection<Animal> animals = animalListBuilder.getAnimalList();
+
+        // The line below does the same as the above line, but uses "var" to let the compiler
+        // determine the type of the variable. This is a feature that can only be used within a method.
+        // var animal = animalListBuilder.getAnimalList();
+
+        // Header for the list of animals
+        out.printf("\nThe %d animals say...\n", animals.size());
+
+        // Print out the animals and their sounds
+        showAllAnimalStats(animals);
+
+
+        // A simple example of using a generic class with bounded types to
+        // create a farm of animals that can talk.
+        Farm<Talker> farm = getAnimalFarm(animals);
+        AnimalBehaviorDisplay.talkerFarmAnimalSpeak(farm, "aconover");
+    }
+
+
+    /**
+     * This method is used to show all the animal sounds. It uses the "instanceof" operator to
+     * determine if the animal is a Talker.
+     * <p>
+     * A generic wildcard is used in type of the formal parameter to ensure that the method can
+     * accept any collection that may be defined as a subtype of Animal. For example, if "Duck"
+     * extends "Animal", a collection of "Duck" objects could be passed to this method.
+     *
+     * @param animals The collection of animals to show the sounds for.
+     */
+    private static void showAllAnimalStats(Collection<? extends Animal> animals) {
+        for (Animal animal : animals) {
+            // Get the name of the animal.
+            String name = animal.getName();
+
+            // If the animal is a "Talker" have the Talker make a sound.
+            // If the animal is a "Mover" have the Mover move.
+            // If the animal is a "MovingTalker" have the MovingTalker make a sound and move.
+            //
+            // Note that the "instanceof" operator is used to determine the is-a relationship of the
+            // object. This is a common way to determine the type of object at runtime, but using
+            // "instanceof" should be avoided when possible as it often indicates a degree of
+            // "coupling" that could be avoided with a different design. We will learn a "better"
+            // way to do this later in the course.
+
+            /*  This is one way to do it, but using a switch is better. */
+//            if (animal instanceof MovingTalker mt) {
+//                AnimalBehaviorDisplay.talkAndMove(name, mt);
+//            } else if (animal instanceof Talker talker) {
+//                AnimalBehaviorDisplay.talk(name, talker);
+//            } else if (animal instanceof Mover mover) {
+//                AnimalBehaviorDisplay.move(name, mover);
+//            }
+
+
+            // The same thing as above, but using a switch statement.
+            // This is the "proper" way to do this, as it removes the explicit usage of
+            // "instanceof", is more readable, and will catch all cases.  (Requires JDK 21+)
+            // THE COMPILER CAN VERIFY THAT ALL TYPES ARE ACCOUNTED FOR IN THE SWITCH!!!
+            switch (animal) {
+                case FlyingTalker mt -> AnimalBehaviorDisplay.talkAndFly(name, mt);
+                case Talker talker -> AnimalBehaviorDisplay.talk(name, talker);
+                case Flyer flyer -> AnimalBehaviorDisplay.fly(name, flyer);
+
+                // If there is no other behavior, then have a default.
+                default -> AnimalBehaviorDisplay.nullBehavior(animal);
+            }
+
+            out.println("-".repeat(50));
+        }
+    }
+
+    /**
+     * Creates a farm of animals that can talk.
+     *
+     * @param animals The collection of animals to be added to the farm.
+     *                The collection can contain any subtype of Named.
+     *
+     * @return A farm containing animals that can talk.
+     */
+    private static Farm<Talker> getAnimalFarm(Collection<? extends Named> animals) {
+        // Create a new farm instance to hold Talker animals
+        Farm<Talker> farm = new Farm<>();
+
+        // Iterate over each animal in the provided collection
+        for (var animal : animals) {
+            // Check if the current animal is an instance of Talker
+            if (animal instanceof Talker talker) {
+                // Add the Talker animal to the farm
+                farm.addAnimal(talker);
+            }
+        }
+
+        // Return the farm containing all Talker animals
+        return farm;
+    }
+
+
+    /**
+     * The AnimalBehaviorDisplay class is a simple static utility class that displays
+     * the behavior of an animal.
+     */
+    static class AnimalBehaviorDisplay {
+        /**
+         * Display the behavior of an animal with only a name.
+         *
+         * @param animal The animal to display behavior for.
+         */
+        static void nullBehavior(Animal animal) {
+            String msg = "%s has no relevant behavior!".formatted(animal.getName());
+            System.out.println(msg);
+        }
+
+        /**
+         * Make a sound for the animal.
+         *
+         * @param name   The name of the animal.
+         * @param talker The animal that can talk.
+         */
+        static void talk(String name, Talker talker) {
+            String msg = "%s says \"%s\"".formatted(name, talker.getSound());
+            System.out.println(msg);
+        }
+
+        /**
+         * Move the animal.
+         *
+         * @param name  The name of the animal.
+         * @param flyer The animal that can move.
+         */
+        static void fly(String name, Flyer flyer) {
+            String msg = "%s flies at %s mph".formatted(name, flyer.getSpeed());
+            System.out.println(msg);
+        }
+
+        /**
+         * Make a sound and move for the animal.
+         *
+         * @param name         The name of the animal.
+         * @param flyingTalker The animal that can talk and move.
+         */
+        static void talkAndFly(String name, FlyingTalker flyingTalker) {
+            String msg = "%s says \"%s\" while flying at %s mph.".formatted(name, flyingTalker.getSound(), flyingTalker.getSpeed());
+            System.out.println(msg);
+            System.out.println(flyingTalker.getMovingSound());
+        }
+
+        /**
+         * Retrieves the sound of a specified animal from the farm and prints it.
+         *
+         * @param farm       The farm containing the animals.
+         * @param animalName The name of the animal whose sound is to be retrieved.
+         */
+        private static void talkerFarmAnimalSpeak(Farm<Talker> farm, String animalName) {
+            // Retrieve the sound of the animal by its name from the farm.
+            // If the animal is not found, use an empty string as the default sound.
+            var sound = farm
+                    .getAnimalByName(animalName)  // Get the animal by name from the farm
+                    .map(Talker::getSound)        // If the animal is found, get its sound
+                    .orElse("I don't exist");     // If the animal is not found, report.
+
+            // Print the name of the animal and the sound it makes.
+            out.printf("The animal named %s says \"%s\"%n", animalName, sound);
+        }
+    }
+}

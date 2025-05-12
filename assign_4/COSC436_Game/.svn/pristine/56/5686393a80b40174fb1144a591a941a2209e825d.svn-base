@@ -1,0 +1,7 @@
+package objectAdventure.world.awolde1;
+
+import objectAdventure.world.core.room.Room;
+
+public class MyRoom extends Room {
+    
+}

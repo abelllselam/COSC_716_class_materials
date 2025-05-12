@@ -1,0 +1,82 @@
+@startuml
+'Student name: Abel Woldemichael
+abstract class GameObject {
+    -name:String
+    -description:String
+    + examine(): void
+    + use(): void
+}
+class Item {
+    -isPortable: Boolean
+    +pickup(): void
+    +drop(): void
+}
+
+class Container {
+    -items: List<Item>
+    +addItem(item:Item):void
+    +removeItem(item:Item):void
+    +open():void
+    +close():void
+}
+
+class Location {
+    - name: String
+    - description: String
+    - exits: Map<String, Location>
+    - items: List<Item>
+    + getDescription(): String
+    + getExit(direction: String): Location
+    + addItem(item: Item): void
+    + removeItem(item: Item): void
+
+}
+
+class Door {
+    - isLocked: Boolean
+    - key: Item
+    + open(): void
+    + lock(): void
+    + unlock(): void
+}
+
+class Player {
+    - inventory: List<Item>
+    - currentLocation: Location
+    + move(direction: String): void
+    + take(item: Item): void
+    + drop(item: Item): void
+    + use(item: Item): void
+    + showInventory(): void
+}
+
+class NPC {
+    -dialogueOptions: String
+    -isHostile: Boolean
+    +talk():void
+    +attack():void
+    +giveItem():void
+}
+
+class Game {
+    - player: Player
+    - locations: List<Location>
+    - gameState: String
+    + start(): void
+    + processCommand(command: String): void
+    + endGame(): void
+}
+
+GameObject <|-- Item
+Item <|-- Container
+GameObject <|-- Door
+GameObject <|-- NPC
+
+
+' Relationships
+' Relationships
+Game "1" --> "1" Player : contains
+Game "1" --> "*" Location : contains
+Game "1" --> "*" GameObject : manages
+Location "1" --> "1" Player : has
+@enduml

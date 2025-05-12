@@ -1,0 +1,20 @@
+package objectAdventure.world.awolde1;
+
+import objectAdventure.world.core.room.Room;
+
+public class MyRoom extends Room {
+    
+    public MyRoom() {
+        super("This is my special room", "The room is a mystical room.")
+    }
+
+    @Override
+    public void enter(){
+        System.out.println("You have entered the special room!");
+    }
+
+    @Override
+    public void describe(){
+        System.err.println("This room is dark and mysterious with strange markings on the wall");
+    }
+}

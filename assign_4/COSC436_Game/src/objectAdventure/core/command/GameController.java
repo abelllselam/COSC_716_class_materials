@@ -1,0 +1,441 @@
+package objectAdventure.core.command;
+// $Id: GameController.java 1070 2025-02-10 23:54:58Z aconover $
+
+import objectAdventure.common.InputInterceptor;
+import objectAdventure.common.RoomEventListener;
+import objectAdventure.common.Utils;
+import objectAdventure.core.DescriptionType;
+import objectAdventure.core.Direction;
+import objectAdventure.core.GameMap;
+import objectAdventure.core.RoomList;
+import objectAdventure.core.item.Item;
+import objectAdventure.core.item.ItemContainer;
+import objectAdventure.core.item.ItemInteractionEvent;
+import objectAdventure.core.item.ItemInteractionEventType;
+import objectAdventure.core.player.PlayerImpl;
+import objectAdventure.core.room.NoSuchRoomException;
+import objectAdventure.core.room.Room;
+import objectAdventure.core.room.SecretTestingRoom.SecretTestingRoom;
+
+import java.util.*;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+import static java.lang.String.format;
+import static java.lang.System.out;
+import static objectAdventure.core.DescriptionType.SHORT;
+
+
+/**
+ * All the "Player Interactions" of the game are routed through this class.
+ *
+ * <p>!!!!!!!!!!!!!!!!!!!!!!!!! NOTICE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!</p>
+ *
+ * <p>This class is intended to be improved upon by using the "command", and a
+ * "Chain of Responsibility" patterns!!! THERE ARE MANY REFACTORING OPPORTUNITIES HERE!!!</p>
+ *
+ * <p>(Ok... I'll admit it... This class grew out of control, and I haven't had time to refactor it properly...)</p>
+ *
+ * @author Adam J. Conover, COSC436/COSC716
+ */
+public class GameController {
+    private final GameMap gameMap;
+    private final RoomList rooms;
+    private final PlayerImpl player;
+
+    private final TakeHandler takeHandler;
+    private final DropHandler dropHandler;
+
+
+    /**
+     * Constructor for the GameController.
+     *
+     * @param player The player object.
+     */
+    public GameController(PlayerImpl player) {
+        this.player = player;
+        this.gameMap = new GameMap();
+        this.rooms = RoomList.newInstance();
+        rooms.addRoom(SecretTestingRoom.newInstance(99, "Secret Testing Room"));
+
+        this.takeHandler = new TakeHandler(this); // Add TakeHandler initialization
+        this.dropHandler = new DropHandler(this); // Add DropHandler initialization
+
+        this.player.setCurrentRoomId(0);
+    }
+
+    /**
+     * Mainly just an example us using a high-level interface.
+     *
+     * @param from The Item possessor to take the item from.
+     * @param to   The Item possessor to give the item to.
+     * @param item The item to be transferred.
+     * @implNote moves item from "from" --> to "to".
+     */
+    static boolean transferItem(final ItemContainer from, final ItemContainer to, final Item item) {
+        if (!item.isAnchored()) {
+            from.removeItem(item);
+            to.addItem(item);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Gets debugging information for the current room.
+     *
+     * @return a string containing the current room's ID and author.
+     */
+    String getCurrentRoomInfo() {
+        try {
+            final var theRoom = this.getCurrentRoom();
+            return "Room ID: %s, Room Author: %s".formatted(theRoom.getRoomId(), theRoom.getRoomAuthor());
+        } catch (NoSuchRoomException ex) {
+            return ex.getMessage();
+        }
+    }
+
+    /**
+     * Returns the current Room object of the active player.
+     *
+     * @return the current Room object of the active player.
+     */
+    Room getCurrentRoom() {
+        return this.getRoomFromID(this.getPlayer().getCurrentRoomId());
+    }
+
+    /**
+     * Gets a room object from its ID.
+     *
+     * @param currentRoomId The ID of the room.
+     * @return The room object, which corresponds to the specified ID.
+     */
+    private Room getRoomFromID(final int currentRoomId) {
+        final var room = rooms.getRoomFromID(currentRoomId);
+        return room.orElseThrow(() -> new NoSuchRoomException(currentRoomId));
+    }
+
+    /**
+     * Retrieves the active player object.
+     *
+     * @return the PlayerImpl instance representing the currently active player.
+     */
+    PlayerImpl getPlayer() {
+        return this.player;
+    }
+
+    /**
+     * Gets a comma-delimited list of player inventory items.
+     *
+     * @return a string containing the player's inventory items.
+     */
+    String getFormattedInventoryItemString() {
+        final List<Item> inventory = player.getItemList();
+
+        if (inventory.isEmpty()) {
+            return "You are empty-handed.";
+        } else {
+            return Utils.getFormattedItemList(inventory, SHORT);
+        }
+    }
+
+    /**
+     * Gets a list of exit directions for the current room.
+     *
+     * @return a list of Direction instances.
+     */
+    List<Direction> getExitDirections() {
+        final var currentRoomId = player.getCurrentRoomId();
+        final var directionSet = this.gameMap.getExitConnections(currentRoomId).keySet();
+
+        return new ArrayList<>(directionSet);
+    }
+
+    /**
+     * Moves the player in the specified direction.
+     *
+     * @param dir The direction to move the player.
+     */
+    void movePlayer(final Direction dir) {
+        final var currentRoomId = this.getPlayer().getCurrentRoomId();
+        final var exits = this.gameMap.getExitConnections(currentRoomId);
+
+        assert (this.gameMap.doesExist(currentRoomId)) : "The current Room does not exist! How did you get here!?";
+
+        // Check if the exit exists, and if so, teleport the player.
+        if (exits.containsKey(dir)) {
+            this.handleTeleport(exits.get(dir));
+        } else {
+            out.printf("Ouch! (There is no exit: %s)%n", dir.toString());
+        }
+    }
+
+    /**
+     * Sets the player's new room number.
+     *
+     * @param newRoomId The destination room number for the player.
+     * @return true if the change was successful, false otherwise.
+     */
+    boolean handleTeleport(final int newRoomId) {
+        assert (this.gameMap.doesExist(newRoomId)) : "The target Room does not exist...";
+
+        // If the room does not exist, do not change the player's current room.
+        if (!gameMap.doesExist(newRoomId)) {
+            Logger.getGlobal().warning(format("The target Room (%d) does not exist.", newRoomId));
+            // Do not change the player's current room.
+            return false;
+        }
+
+        // Get the current and new room objects.
+        final var currentRoomId = this.player.getCurrentRoomId();
+        final var fromRoom = this.rooms.getRoomFromID(currentRoomId);
+        final var toRoom = this.rooms.getRoomFromID(newRoomId);
+
+        // Update the player's current room.
+        player.setCurrentRoomId(newRoomId);
+
+        // Notify the rooms of the player's movement.
+        fromRoom.ifPresent(room -> {
+            if (room instanceof RoomEventListener listener)
+                listener.playerLeavingRoom(player);
+        });
+
+        // Notify the rooms of the player's movement.
+        toRoom.ifPresent(room -> {
+            if (room instanceof RoomEventListener listener)
+                listener.playerEnteringRoom(player);
+        });
+
+        // Update the player's current room.
+        return true;
+    }
+
+    /**
+     * Processes a "handleLook" command issued by the player, which allows the player to
+     * observe their surroundings or get a detailed description of a specified item.
+     *
+     * @param command The player command containing the "handleLook" action and the
+     *                optional target noun.
+     * @return A string describing either the current room and its contents (if no
+     *         noun is provided) * or the detailed description of the specified
+     *         item. If the specified item is not found, * a message indicating its
+     *         absence is returned.
+     */
+    String handleLook(PlayerCommand command) {
+        String noun = command.noun();
+        assert noun != null : "The noun should not be null!  (Either empty string, valid item alias, or \"ROOM\"))";
+
+        // If no specific noun is given (i.e., user just typed "LOOK")
+        if (noun.isBlank() || noun.equalsIgnoreCase("ROOM")) {
+            // Invoke the playerLookingAtRoom method on the current room
+            if (this.getCurrentRoom() instanceof RoomEventListener listener) {
+                listener.playerLookingAtRoom(player);
+            }
+
+            return "%s%n%nYou See:%n%s".formatted(
+                    // Gets the description of the current room the player is in
+                    getCurrentRoom().getRoomDescription(),
+                    // Gets the display names of all items in the room (in SHORT format)
+                    getRoomItemDisplayNames(SHORT));
+
+        } else {
+            // AJC_TODO: Add --> new ItemInteractionEvent(LOOK, playerCommand, this.getPlayer())
+
+            // If a specific noun is provided (e.g., "LOOK key")
+            return getAllItemsFromItemAlias(noun, getPlayer().getItemList(), getCurrentRoom().getItemList())
+                           .stream() // Processes the list of matching items as a stream
+                           .map(Item::getItemFullDescription) // Transforms each item into its detailed description
+                           .collect(Collectors.collectingAndThen(
+                                   Collectors.joining("\n"), // Joins all item descriptions, separated by newlines.
+                                   str -> str.isBlank()
+                                          ? format("You don't see %s here.", noun) // If no items match the noun.
+                                          : str // Otherwise, return the joined descriptions
+                           ));
+        }
+    }
+
+    /**
+     * Gets item descriptions for the current room.
+     *
+     * @param type The description type.
+     * @return a string containing the item descriptions.
+     */
+    String getRoomItemDisplayNames(DescriptionType type) {
+        try {
+            return this.getRoomItemDisplayNames(this.getCurrentRoom(), type);
+        } catch (NoSuchRoomException e) {
+            return "No items in a non-existent room.";
+        }
+    }
+
+    /**
+     * Gets a list of items based on the alias.
+     *
+     * @param noun           The target object name.
+     * @param itemCollection The list of items to search.
+     * @return a list of item objects matching the alias.
+     */
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    private List<? extends Item> getAllItemsFromItemAlias(final String noun,
+                                                          Collection<? extends Item>... itemCollection) {
+        // Combine lists of room and player items.
+        return Arrays.stream(itemCollection)
+                       .flatMap(Collection::stream)
+                       .filter(item -> Item.getUpperCaseAliases(item).contains(noun.toUpperCase()))
+                       .toList();
+    }
+
+    /**
+     * Gets the item descriptions for a specified room.
+     *
+     * @param theRoom The room with the items.
+     * @param type    The description type.
+     * @return a string containing the item descriptions.
+     */
+    private String getRoomItemDisplayNames(final ItemContainer theRoom, DescriptionType type) {
+        if (theRoom.getItemList().isEmpty()) {
+            return "Nothing of Interest.";
+        } else {
+            return Utils.getFormattedItemList(theRoom.getItemList(), type);
+        }
+    }
+
+    /**
+     * Takes a single item from the room.
+     *
+     * @param playerCommand The player command containing the item to be taken.
+     * @return a string describing the result of the action.
+     */
+    String handleTakeItem(PlayerCommand playerCommand) {
+        if (!this.isRoomPresent()) {
+            Logger.getGlobal().warning("Player is not in a room, can't take items.");
+            return "You can't take items here!";
+        }
+
+        // If "ALL" was specified, then take all items.
+        if ("ALL".equalsIgnoreCase(playerCommand.noun()))
+            return takeHandler.takeAllItems(playerCommand);
+        else
+            return takeHandler.takeItem(playerCommand);
+    }
+
+    /**
+     * Checks if the room for the current player exists (has a "room" object).
+     *
+     * @return true if the room exists, false otherwise.
+     */
+    private boolean isRoomPresent() {
+        return this.isRoomPresent(player.getCurrentRoomId());
+    }
+
+    /**
+     * Checks if a room with a given ID exists.
+     *
+     * @param roomID The ID of the Room.
+     * @return true if the room exists, false otherwise.
+     */
+    private boolean isRoomPresent(int roomID) {
+        return rooms.getRoomFromID(roomID).isPresent();
+    }
+
+    /**
+     * Drops a single item based on the player's command.
+     *
+     * @param playerCommand The player's input containing the item to drop.
+     * @return The result of the drop action.
+     */
+    String handleDropItem(PlayerCommand playerCommand) {
+        if (!this.isRoomPresent()) {
+            Logger.getGlobal().warning("Player is not in a room, can't drop items.");
+            return "You can't drop items here!";
+        }
+
+        // If "ALL" was specified, then drop all items.
+        if ("ALL".equalsIgnoreCase(playerCommand.noun()))
+            return dropHandler.dropAllItems(playerCommand);
+        else
+            return dropHandler.dropItem(playerCommand);
+    }
+
+    /**
+     * Invokes the item interaction handler for the specified item.
+     *
+     * @param playerCommand The item to be manipulated.
+     * @return a string describing the result of the action.
+     */
+    String interactWithItem(PlayerCommand playerCommand, ItemInteractionEventType action) {
+        // Get the item from the alias, searching both the player's inventory and the
+        // current room's items.
+        var item = this.getItemFromAlias(playerCommand.noun(),
+                Utils.concatLists(
+                        this.getPlayer().getItemList(),
+                        this.getCurrentRoom().getItemList()));
+
+        // Check if the item is present.
+        if (item.isPresent()) {
+            // Interact with the item using the specified action.
+            ItemInteractionEvent itemInteractionEvent = new ItemInteractionEvent(action, playerCommand,
+                    this.getPlayer());
+            var result = item.get().itemInteractionHandler(itemInteractionEvent);
+
+            // Return the result message if the interaction was successful.
+            if (result.bSuccess()) {
+                return result.message();
+            } else {
+                // Return a default message if the result message is blank.
+                return result.message().isBlank() ? "You can't %s the %s.".formatted(action.getAliases(), playerCommand)
+                                                  : result.message();
+            }
+
+        } else {
+            // Return a message indicating that the item was not found.
+            return format("You see no '%s' here!!!", playerCommand);
+        }
+    }
+
+    /**
+     * Get an item object based on the alias. If there are multiple matches, the
+     * first one found will be returned.
+     *
+     * @param lexeme   The target object name.
+     * @param itemList The list of items to search.
+     * @return An Optional containing the item object if found, otherwise an empty
+     *         Optional.
+     */
+    @SafeVarargs
+    final Optional<? extends Item> getItemFromAlias(final String lexeme, Collection<? extends Item>... itemList) {
+        // This replaces the above!
+        return Arrays.stream(itemList)
+                       .flatMap(Collection::stream)
+                       .filter(item -> item.getItemAliases().stream().anyMatch(lexeme::equalsIgnoreCase))
+                       .findFirst();
+    }
+
+    /**
+     * This is a bit of a hack to allow the rooms to build their own parsers or
+     * manipulate the raw string before being handed off to the main game shell.
+     *
+     * @param inputLine The raw input line.
+     * @return The manipulated input line.
+     */
+    String preProcessInput(String inputLine) {
+        if (this.isRoomPresent() && this.getCurrentRoom() instanceof InputInterceptor room) {
+            String returnString = room.interceptInput(inputLine);
+            return returnString == null ? "" : returnString;
+        } else {
+            return inputLine;
+        }
+    }
+
+    /**
+     * Debugging call to show the contents of all rooms. (Delegate Method)
+     *
+     * @return a formatted string listing the complete contents of the room.
+     */
+    String DEBUG_DescribeAllRoomContents() {
+        return this.rooms.DEBUG_GetAllMapContents();
+    }
+
+}
