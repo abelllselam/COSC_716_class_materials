@@ -1,3 +1,0 @@
-- There are three core class-type constructs in java.
-- Interface, Abstract , and Concrete classes.
--
